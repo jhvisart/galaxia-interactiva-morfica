@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visart | Morphic Intelligence</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Inter', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        #ui {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            pointer-events: none;
+            letter-spacing: 2px;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+        #instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            border: 1px solid white;
+            padding: 20px;
+            cursor: pointer;
+            background: rgba(0,0,0,0.8);
+            transition: 0.3s;
+        }
+        #instructions:hover {
+            background: white;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">Visart // Morphic Intelligence Visualizer</div>
+    <div id="instructions">CLICK PARA INICIAR EXPERIENCIA SENSORIAL</div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const instructions = document.getElementById('instructions');
+        
+        let audioCtx, analyser, dataArray, source;
+        let particles = [];
+        const numParticles = 150;
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Clase de Partícula con Comportamiento Inteligente
+        class MorphicAgent {
+            constructor(index) {
+                this.index = index;
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 1;
+                this.velocity = { x: 0, y: 0 };
+                this.acceleration = { x: 0, y: 0 };
+                this.maxSpeed = 2;
+                this.friction = 0.95;
+                this.color = `hsla(${Math.random() * 50 + 180}, 80%, 60%, 0.8)`;
+            }
+
+            update(audioValue) {
+                // Inteligencia Mórfica: Reacción al Mouse y Audio
+                let dx = mouse.x - this.x;
+                let dy = mouse.y - this.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                
+                // Campo de atracción basado en audio
+                let force = (dist < 300) ? (audioValue / 50) : 0;
+                this.acceleration.x += (dx / dist) * force * 0.1;
+                this.acceleration.y += (dy / dist) * force * 0.1;
+
+                this.velocity.x += this.acceleration.x;
+                this.velocity.y += this.acceleration.y;
+                
+                // Limitar velocidad
+                this.velocity.x *= this.friction;
+                this.velocity.y *= this.friction;
+
+                this.x += this.velocity.x;
+                this.y += this.velocity.y;
+
+                this.acceleration.x = 0;
+                this.acceleration.y = 0;
+
+                // Mantener en pantalla
+                if (this.x < 0) this.x = canvas.width;
+                if (this.x > canvas.width) this.x = 0;
+                if (this.y < 0) this.y = canvas.height;
+                if (this.y > canvas.height) this.y = 0;
+            }
+
+            draw(audioValue) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size + (audioValue / 20), 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                
+                // Dibujar conexiones neuronales
+                particles.forEach(p => {
+                    let d = Math.sqrt((this.x - p.x)**2 + (this.y - p.y)**2);
+                    if (d < 100 + audioValue) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = `rgba(100, 200, 255, ${1 - d/(100+audioValue)})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.moveTo(this.x, this.y);
+                        ctx.lineTo(p.x, p.y);
+                        ctx.stroke();
+                    }
+                });
+            }
+        }
+
+        const mouse = { x: canvas.width/2, y: canvas.height/2 };
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        function initAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                source = audioCtx.createMediaStreamSource(stream);
+                source.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                instructions.style.display = 'none';
+                animate();
+            });
+        }
+
+        for (let i = 0; i < numParticles; i++) {
+            particles.push(new MorphicAgent(i));
+        }
+
+        function animate() {
+            // Efecto de rastro (Motion Blur)
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            analyser.getByteFrequencyData(dataArray);
+
+            particles.forEach((p, i) => {
+                let freqIndex = i % dataArray.length;
+                let audioVal = dataArray[freqIndex];
+                p.update(audioVal);
+                p.draw(audioVal);
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        instructions.addEventListener('click', () => {
+            initAudio();
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
